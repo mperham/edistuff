@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project default="jar:install" xmlns:j="jelly:core">
+
+	<goal name="publish">
+		<attainGoal name="jar:install"/>
+		<exec executable="scp.exe">
+			<arg line="-pw ${server.password} ${maven.build.dir}/${maven.final.name}.jar root@build.webifysolutions.com:/www/webify/repository/${pom.groupId}/jars"/>
+		</exec>
+	</goal>
+
+</project>

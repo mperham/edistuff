@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<project>
+
+	<pomVersion>3</pomVersion>
+  
+	<name>Shared EDI</name>
+    <id>shared-edi</id>
+    <groupId>shared</groupId>
+    <package>com.webify.shared</package>
+    <shortDescription>Webify Shared EDI codebase</shortDescription>
+    <description>Webify Shared EDI codebase</description>
+	<currentVersion>2.0</currentVersion>
+
+    <dependencies>
+
+        <dependency>
+            <id>commons-logging</id>
+            <version>1.0.3</version>
+			<properties>
+                <war.bundle>false</war.bundle>
+            </properties>
+        </dependency>
+
+        <dependency>
+            <id>javacc</id>
+            <version>3.2</version>
+            <url>http://java.sun.com/</url>
+			<properties>
+                <war.bundle>false</war.bundle>
+            </properties>
+        </dependency>
+
+    </dependencies>
+            
+  <build>
+	<nagEmailAddress>build@webifysolutions.com</nagEmailAddress>
+    <sourceDirectory>${basedir}/src/java</sourceDirectory>
+    <unitTestSourceDirectory>${basedir}/src/test</unitTestSourceDirectory>
+
+    <!-- Unit test classes -->
+    <unitTest>
+		<includes>
+			<include>**/*Suite.java</include>
+		</includes>
+		<resources>
+		  <resource>
+			<directory>${basedir}/src/test</directory>
+			<includes>
+				<include>**/*.edi</include>
+				<include>**/*.xml</include>
+				<include>**/*.properties</include>
+			</includes>
+		  </resource>
+		  <resource>
+			<directory>${basedir}/src/test</directory>
+			<includes>
+			  <include>log4j.properties</include>
+			</includes>
+		  </resource>
+		</resources>
+	  
+    </unitTest>
+
+    <resources>
+		<resource>
+			<directory>${basedir}/src/java</directory>
+			<excludes>
+				<exclude>**/*.java</exclude>
+			</excludes>
+		</resource>
+    </resources>
+    
+  </build>
+
+	<reports>
+		<report>maven-jdepend-plugin</report>
+		<report>maven-checkstyle-plugin</report>
+		<report>maven-clover-plugin</report>
+		<report>maven-changes-plugin</report>
+		<report>maven-changelog-plugin</report>
+		<report>maven-findbugs-plugin</report>
+		<report>maven-file-activity-plugin</report>
+		<report>maven-developer-activity-plugin</report>
+		<report>maven-javadoc-plugin</report>
+		<report>maven-jxr-plugin</report>
+		<report>maven-junit-report-plugin</report>
+		<report>maven-tasklist-plugin</report>
+		<report>maven-jellydoc-plugin</report>
+		<report>maven-pmd-plugin</report>
+		<report>maven-simian-plugin</report>
+		<report>maven-faq-plugin</report>
+		<report>maven-multiproject-plugin</report>
+	</reports>
+
+</project>

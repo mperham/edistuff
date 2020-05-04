@@ -1,0 +1,533 @@
+options {
+  STATIC=false;
+  JAVA_UNICODE_ESCAPE=false;
+  LOOKAHEAD=3;
+  FORCE_LA_CHECK=false;
+  DEBUG_PARSER=false;
+  DEBUG_LOOKAHEAD=false;
+  DEBUG_TOKEN_MANAGER=false;
+}
+
+/**
+ * A JavaCC grammar to describe an SEF file.  The grammar works
+ * with the generic X12 object model in com.webify.shared.edi.parser.sef
+ * to create a set of Java objects which can parse, validate and emit
+ * an EDI transaction associated with that SEF file.
+ * 
+ * @author mperham
+ * @version $Id: sef.jj,v 1.1.1.1 2004/02/19 18:36:27 mperham Exp $
+ */
+
+PARSER_BEGIN(SEFParser)
+
+import java.io.*;
+import com.webify.shared.edi.parser.sef.X12Handler;
+
+public class SEFParser {
+	private X12Handler handler = new X12Handler();
+  	private int anonLoopCount = 0;
+  	
+	public static void main(String args[]) {
+		try {
+		    SEFParser parser = new SEFParser(new FileInputStream(new File(args[0])));
+		    parser.input();
+		}
+		catch (Throwable ex) {
+			ex.printStackTrace();
+		}
+	}
+	
+	private String getValue(Token t) {
+		if (t == null) { return null; }
+		return t.image;
+	}
+}
+
+PARSER_END(SEFParser)
+
+
+/* WHITE SPACE */
+TOKEN :
+{
+  <SPACE: " ">
+| <TAB: "\t">
+| <CR: "\r">
+| <NL: "\n">
+| <CRNL: "\r\n">
+}
+
+/* RESERVED WORDS AND LITERALS */
+
+TOKEN :
+{
+  < VERSION: ".VER" >
+| < INITIALIZE: ".INI" > : INI
+| < SEGMENTS: ".SEGS" >
+| < PUBLIC: ".PUBLIC" >
+| < TRANSACTION_SETS: ".SETS" >
+| < STANDARD: ".STD" >
+| < COMPOSITES: ".COMS" >
+| < ELEMENTS: ".ELMS" >
+| < CODES: ".CODES" >
+}
+
+TOKEN :
+{
+  < LPAREN: "(" >
+| < RPAREN: ")" >
+| < LBRACE: "{" >
+| < RBRACE: "}" >
+| < LBRACKET: "[" >
+| < RBRACKET: "]" >
+| < SEMICOLON: ";" >
+| < COMMA: "," >
+| < COLON: ":" >
+| < AT: "@" >
+| < AMP: "&" >
+| < MINUS: "-" >
+| < PLUS: "+" >
+| < PERIOD: "." >
+| < DOLLAR: "$" >
+| < BANG: "!" >
+| < EQUALS: "=" >
+| < HASH: "#" >
+| < STAR: "*" >
+| < HAT: "^" >
+| < PIPE: "|" >
+| < PERCENT: "%" >
+| < SLASH: "/" >
+}
+
+TOKEN :
+{
+	< LETTER: ["A"-"Z"] >
+|
+	< DIGIT: ["0"-"9"] >
+}
+
+<INI>
+TOKEN: {
+	<SEP: ",">
+|   <PRIVATE: ".PRIVATE"> : DEFAULT
+| 	<TEXT: (~[",", "\r", "\n", "."])+ >
+| 	<LINEBREAK: "\r" | "\n" | "\r\n">
+}
+
+void linebreak() :
+{}
+{
+	<CRNL>
+|
+	<CR>
+|
+	<NL>
+}
+
+/*
+  Examples of Identifiers include:
+  1040AA
+  BHT
+  NM1
+  S3A
+*/
+Token identifier() :
+{ Token id = null, s = null; }
+{
+	( 
+		( s = number() | 
+		s = letter() )
+		{
+			if (id != null) 
+				id.image += s.image;
+			else 
+				id = s;
+		}	
+	)+
+	{
+		return id;
+	}
+}
+
+Token loopName() :
+{ Token id = null, s = null; }
+{
+	id = number() 
+	[ 
+		s = letter() 
+  		{ id.image += s.image; }
+	]
+	{
+		return id;
+	}
+}	 
+
+
+Token number() :
+{ Token t = null, s = null; }
+{
+	[ s = <MINUS> ]
+	(
+		t = <DIGIT>
+		{
+			if (s == null) {
+				s = t;
+			} else {
+				s.image += t.image;
+			}
+		}
+	)+
+	{
+		return s;
+	}
+}
+
+Token letter() :
+{ Token t = null, s = null; }
+{
+	(
+		t = <LETTER>
+		{
+			if (s == null) {
+				s = t;
+			} else {
+				s.image += t.image;
+			}
+		}
+	)+
+	{
+		return s;
+	}
+}
+
+
+void input() :
+{}
+{
+  ( version() )?
+  initialize()
+  private_area()
+  standard()
+  xa_sets()
+  segments()
+  composites()
+  elements()
+  codesets()
+  <EOF>
+  {
+  	handler.complete();
+  }
+}
+
+void composites() :
+{ Token compName; }
+{
+	<COMPOSITES>
+	linebreak()
+	(
+		compName = identifier()
+		{
+			handler.startComposite(compName.image);
+		}
+		<EQUALS>
+		( field() | field_group() )+
+		[ <PLUS> field_rules() ]
+		[ <COMMA> ( mask() )+ ]	
+		linebreak()
+	)+
+}
+
+
+void codesets() :
+{ Token elementId, min = null, max = null, segOrd = null, fieldOrd = null, compositeOrd = null; }
+{
+	<CODES>
+	linebreak()
+	(
+		elementId = identifier()
+		{
+			handler.startCodeset(elementId.image);
+			max = null;
+		}
+		<EQUALS>
+		[
+			min = identifier()
+			[ <COLON> max = identifier() ]
+			{ handler.addCodesetRange(min.image, getValue(max)); max = null; }
+
+			(
+				( <COMMA> | <PIPE> )
+				min = identifier()
+				[ <COLON> max = identifier() ]
+				{ handler.addCodesetRange(min.image, getValue(max)); max = null;}
+			)*
+		]
+		
+		[ <PERCENT>
+			( 
+				<LBRACKET>
+				{
+					handler.startCodesetOverride(elementId.image);
+				}
+				[
+					(
+						min = identifier()
+						[ <COLON> max = identifier() ]
+						[ <COMMA> ]
+						{ handler.addCodesetRangeOverride(min.image, getValue(max)); max = null;
+						}
+					)+
+				| <STAR> ]
+					[ 
+						<LBRACE> 
+						(
+							min = identifier()
+							[ <COLON> max = identifier() ]
+							[ <COMMA> ]
+							{ handler.addCodesetRangeOverride(min.image, getValue(max));  max = null;
+							}
+						)+
+						<RBRACE>
+					]
+				<RBRACKET> 
+				<PLUS> identifier() <SLASH> 
+				segOrd = number() 
+				<SLASH> <SLASH> <SLASH> 
+				fieldOrd = number() 
+				[ <MINUS> compositeOrd = number() ]
+				{
+					handler.endCodesetOverride(Short.parseShort(segOrd.image), Short.parseShort(fieldOrd.image), (compositeOrd != null ? Short.parseShort(compositeOrd.image) : 0));
+					max = null;
+					compositeOrd = null;
+				}
+			)+ 
+		]
+		{ 
+			handler.endCodeset();
+		}
+		linebreak()
+	)+
+}
+
+
+void elements() :
+{ Token fieldId, type, min, max; }
+{
+	<ELEMENTS>
+	linebreak()
+	(
+		fieldId = identifier()
+		<EQUALS>
+		type = identifier()
+		<COMMA>
+		min = number()
+		<COMMA>
+		max = number()
+		linebreak()
+		{
+			handler.createField(fieldId.image, type.image, Byte.parseByte(min.image), Integer.parseInt(max.image));
+		}
+	)+
+}
+
+
+void segments() :
+{ Token segName; }
+{
+	<SEGMENTS>
+	linebreak()
+	(
+		segName = identifier()
+		{
+			handler.startSegment(segName.image);
+		}
+		<EQUALS>
+		( field_group() | field() )+
+		[ <PLUS> field_rules() ]
+		[ <COMMA> ( mask() )+ ]	
+		linebreak()
+		{
+			handler.endSegment();
+		}
+	)+
+}
+
+void mask() :
+{ Token usage = null, letter = null, symbol = null, compMask = null, min = null, max = null, repeat = null; int i = 1; }
+{
+	{
+		handler.startMask();
+	}
+	(
+	( usage = <PERIOD> | usage = <HASH> | usage = <AT> | usage = <PLUS> | usage = <MINUS>  | usage = <DOLLAR> | <AMP> )
+	[ letter = <LETTER> ]
+	[ ( <STAR> compMask = number()) ]
+	[ <LBRACKET> [ min = number() ] <COLON> [ max = number() [ <COLON> repeat = number() ] ] <RBRACKET> ]
+	{
+		handler.addMaskField(i++, getValue(usage), getValue(letter), getValue(compMask), getValue(min), getValue(max), getValue(repeat));
+	}
+	)+
+	[ <COMMA> ]
+}
+
+void field_group() :
+{ Token count = null; }
+{
+	<LBRACE>
+	count = number()
+	{ handler.startFieldGroup(new Integer(count.image)); }
+	( field() | field_group() )+
+	{ handler.endFieldGroup(); }
+	<RBRACE>
+}
+
+void field() :
+{ Token fieldName, ordinal = null, optional = null; }
+{
+	<LBRACKET>
+	[ ( <BANG> | <DOLLAR> | <PERIOD> | <MINUS> | <AMP> ) ]
+	fieldName = identifier()
+	[ <AT> ordinal = number() ]
+	[ <SEMICOLON> [ number() ] <COLON> number() ]
+	[ <COMMA> optional = <LETTER> [ <COMMA> number() ]]
+
+	<RBRACKET>
+	{
+		handler.addFieldReference(getValue(fieldName), (ordinal != null ? Short.parseShort(ordinal.image) : 0),
+			(optional != null ? !"M".equals(optional.image) : true));
+	}
+}
+
+void field_rules() :
+{ Token type, elements; }
+{
+	(
+		type = <LETTER>
+		elements = number()
+		{
+			handler.addFieldRule(type.image, elements.image);
+		}
+	)+
+}
+
+void xa_sets() :
+{ Token xaNum; }
+{
+	<TRANSACTION_SETS>
+	linebreak()
+	xaNum = number()
+	<EQUALS> 
+	( xa_segment() )+
+	( loop() )*
+	( xa_segment() )+
+	linebreak()
+}
+
+void xa_segment() :
+{ Token name = null, optional = null, count = null, usage = null, mask = null, ordinal = null, position = null; }
+{
+	[ <HAT> ] 
+	[ ( <PLUS> )? position = number() ]
+	<LBRACKET> 
+	[ usage = <BANG> | usage = <DOLLAR> | usage = <PERIOD> | usage = <MINUS> | usage = <AMP> ]
+	name = identifier()
+	[ <STAR> mask = number() ]
+	[ <AT> ordinal = number() ]
+	[ <COMMA> [ optional = <LETTER> ] [ <COMMA> ( count = number() | count = ">1" ) ]]
+	<RBRACKET>
+	{
+		handler.addSegmentReference(name.image, 
+			(optional != null ? !"M".equals(optional.image) : true),
+			getValue(usage),
+			(count != null ? (">1".equals(count.image) ? Short.MAX_VALUE : Short.parseShort(count.image)) : 1), 
+			(ordinal != null ? Short.parseShort(ordinal.image) : 0), 
+			(mask != null ? Short.parseShort(mask.image) : 0),
+			(position != null ? Short.parseShort(position.image) : Short.MIN_VALUE));
+	}
+}
+
+void loop() :
+{ Token name = null, count = null; }
+{
+	[ <HAT> ]
+	<LBRACE> 
+	[ name = loopName() ]
+	[ <COLON> ( count = number() | count = ">1" ) ]
+	{ 
+		handler.startLoop((name != null ? name.image : "Unnamed" + anonLoopCount++), 
+			(count != null ? (">1".equals(count.image) ? Short.MAX_VALUE : Integer.parseInt(count.image)) : 1)); 
+	}
+	( xa_segment() )+
+	( loop() )*
+	( xa_segment() )?
+	<RBRACE>
+	{
+		handler.endLoop();
+	}
+}
+
+
+void initialize() :
+{ Token desc, stanid, docid; }
+{
+	<INITIALIZE>
+	<LINEBREAK>
+	docid = <TEXT> <SEP> <SEP> 
+	stanid = <TEXT> <SEP> <TEXT> <SEP> <TEXT> <SEP> 
+	desc = <TEXT>
+	<LINEBREAK>
+	{
+		handler.startTransaction(docid.image, stanid.image, desc.image);
+	}
+}
+
+void standard() :
+{}
+{
+	( <STANDARD> " " ( <COMMA> letter() )* linebreak() )?
+}
+	
+void private_area() :
+{}
+{
+	<PRIVATE> " EDIdEv" linebreak()
+	( loop_trigger() )*
+	( segment_trigger() )*
+	[ ".DATE " number() <SLASH> number() <SLASH> number() [ <SPACE> number() <COLON> number() <COLON> number() <SPACE> identifier() ] linebreak() ]
+	<PUBLIC> linebreak()
+}
+
+void loop_trigger() :
+{ Token segName, fieldIdx, value, loopName, valIt; }
+{
+	<PERIOD> "LOOP" number() <SPACE>
+	number() <SLASH> number() <SLASH>
+	segName = identifier() [ ( <SEMICOLON> segName = identifier() )+ ] <SLASH>
+	fieldIdx = number() <SLASH> number() <SLASH> value = identifier() [ ( <COMMA> valIt = identifier() { value.image += "," + valIt.image; } )+ ] <SLASH>
+	loopName = identifier() 
+	linebreak()
+	{
+		handler.addLoopTrigger(getValue(loopName), getValue(segName), Integer.parseInt(fieldIdx.image), getValue(value));
+	}
+}
+
+void segment_trigger() :
+{ Token segName = null, fieldIdx, value, valIt, segIdx, loopName = null; }
+{
+	<PERIOD> "SEGMENT" number() <SPACE>
+	number() <SLASH> number() <SLASH>
+	[ identifier() [ ( <SEMICOLON> identifier() )+ ]] <SLASH> segName = identifier() <SLASH>
+	fieldIdx = number() <SLASH> number() <SLASH> value = identifier() [ ( <COMMA> valIt = identifier() { value.image += "," + valIt.image; } )+ ] <SLASH> segIdx = number() <SLASH>
+	[ loopName = identifier() ]
+	linebreak()
+	{
+		handler.addSegmentTrigger(getValue(loopName), getValue(segName), Integer.parseInt(segIdx.image), Integer.parseInt(fieldIdx.image), getValue(value));
+	}
+}
+
+
+void version() :
+{}
+{
+	<VERSION> " " ( <DIGIT> <PERIOD> <DIGIT> )?
+	linebreak()
+}

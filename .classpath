@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src/java"/>
+	<classpathentry kind="src" path="src/test"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/J2EE [1.3]"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/Jakarta Commons"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/JUnit [3.8.1]"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.USER_LIBRARY/Log4J [1.2.8]"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

@@ -1,0 +1,4 @@
+2004-07-05 15:53:46,606 INFO  com.werken.werkz.jelly.PostGoalTag - Running post goal: jar:jar
+2004-07-05 15:53:46,635 INFO  org.apache.maven.cli.App - Total time: 8 seconds
+2004-07-05 15:53:46,635 INFO  org.apache.maven.cli.App - Finished at: Mon Jul 05 15:53:46 CDT 2004
+2004-07-05 15:53:46,635 INFO  org.apache.maven.cli.App - 

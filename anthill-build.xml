@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+
+<!-- 
+    Ant project for the Anthill build system.  This should
+    only be run from the Anthill build server.
+
+    $Id: anthill-build.xml,v 1.17 2004/08/23 19:30:27 chaitanya Exp $
+-->
+
+<project name="shared edi Build" default="build">
+
+    <property name="maven.home" value="/opt/maven"/>
+
+    <target name="build">
+        <exec executable="${maven.home}/bin/maven" dir="." failonerror="true">
+        </exec>
+    </target>
+
+</project>
